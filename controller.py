@@ -11,6 +11,10 @@ import time
 ec2_client=boto3.client('ec2',region_name='us-east-1')
 ec2_resrc=boto3.resource('ec2',region_name='us-east-1')
 
+#create client for queue
+sqs_client=boto3.client('sqs')
+sqs_resrc=boto3.resource('sqs')
+
 #define constants
 #to add key pair and security group ID
 APP_TIER_PREFIX='app_tier_ec2'
@@ -52,9 +56,10 @@ def create_instance(key_pair,security_group_id,img_id='ami-0bb1040fdb5a076bc',mi
         ec2_resrc.instances.filter(InstanceIds=id_list).terminate()
         
     #autoscaling function
+    #to check get_queue_attributes function parameters 
     def autoscale(url):
         #get length of queue with url given
-        queue_approx_num_msgs=get_queue_attributes(QueueUrl=url,AttributeNames='ApproximateNumberOfMessages')['Attributes']
+        queue_approx_num_msgs=sqs_client.get_queue_attributes(QueueUrl=url,AttributeNames='ApproximateNumberOfMessages')['Attributes']
         #convert to integer
         queue_len=int(queue_approx_num_msgs)
         #get number of running ec2 instances
