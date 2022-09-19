@@ -9,7 +9,7 @@ ec2_client=boto3.client('ec2',region_name='us-east-1')
 ec2_resrc=boto3.resource('ec2',region_name='us-east-1')
 
 #define constants
-
+APP_TIER_PREFIX='app_tier_ec2'
 
 #launch ec2 instances
 def create_instance(key_pair,security_group_id,img_id='ami-0bb1040fdb5a076bc'):
@@ -35,6 +35,13 @@ def create_instance(key_pair,security_group_id,img_id='ami-0bb1040fdb5a076bc'):
                                 ]
                               )
     
-    
+    #terminate instance 
+    #add instance id of instance to be terminated into an empty array 
+    #filter function from boto3 requires passing an array of instance IDs
+    def terminate_instance(inst_id):
+        id_list=[]
+        id_list.append(inst_id)
+        ec2_resrc.instances.filter(InstanceIds=id_list).terminate()
+        
         
     
