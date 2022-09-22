@@ -58,7 +58,7 @@ def create_instance(key_pair,security_group_id,img_id='ami-0bb1040fdb5a076bc',mi
     #autoscaling function
     #to check get_queue_attributes function parameters 
     def autoscale(url):
-        #get length of queue with url given
+        #get length of queue with url given, which denotes the number of req on the SQS
         queue_approx_num_msgs=sqs_client.get_queue_attributes(QueueUrl=url,AttributeNames='ApproximateNumberOfMessages')['Attributes']
         #convert to integer
         queue_len=int(queue_approx_num_msgs)
@@ -66,7 +66,9 @@ def create_instance(key_pair,security_group_id,img_id='ami-0bb1040fdb5a076bc',mi
         num_running_instances=get_running_instances()
         
         #launch 19-number of running instances
-        num_ec2_launch=MAX_APP_EC2-num_running_instances
+        max_ec2_launch=MAX_APP_EC2-num_running_instances
+        #take the minimum of number of requests and value calculated above
+        num_ec2_launch=min(queue_len,max_ec2_launch)
         #create as many instances as calculated
         create_instance(KEY_PAIR,SEC_GROUP_ID,'ami-0bb1040fdb5a076bc',min=num_ec2_launch,max=num_ec2_launch)
     
