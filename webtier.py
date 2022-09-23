@@ -3,6 +3,7 @@ from crypt import methods
 from fileinput import filename
 import uuid
 import os
+from winreg import KEY_ENUMERATE_SUB_KEYS
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO
 from threading import Thread
@@ -11,6 +12,84 @@ from threading import Thread
 from webtier_helper import * 
 from constants import *
 from helper import *
+import boto3
+import json
+import time
+
+def process_image(request_queue_url, b64_string, job_id):
+    message_attr = {}
+    body_object = {
+        'image': b64_string,
+        'job_id': job_id
+    }
+    body = json.dumps(body_object)
+    send_message(request_queue_url, message_attr, job_id, body)
+
+def spawn_processing_apps(request_queue_url, job_id):
+    q_length = int(get_one_queue_attribute(request_queue_url))
+
+    running = get_running_app_tiers_ids()
+    max_new = MAX_APP_TIERS - num_running
+    num_instances = min(q_length, max_new)
+
+    create_instance(
+        KEY_NAME,
+        SECURITY_GROUP_ID,
+        image_id=AMI_IMAGE_ID,
+        min_count=num_instances,
+        max_count=num_instances
+    )
+    
+def get_running_app_tiers_ids():
+    curr_ins_id = get_instance_id()
+    ec2_res = boto3.resource('ec2')
+    instances = ec2_res.instances.filter(
+        Filters =[
+            {
+                'Name':'instance-state-name',
+                'Values': ['running']
+            }
+        ]
+    )
+    instance_ids = []
+    for instance in instances:
+        if instance.id != curr_ins_id:
+            instance_ids.append(instance.id)
+    return len(instance_ids)
+
+def listen_for_results(socketio, response_queue_irl, job_id, job_dictionary):
+    res_rec = 0
+    j_length = job_dictionary[job_id]
+    socketio.emit('prcoessing_start', j_length)
+    while res_rec != j_length:
+        resp = receive_message(response_queue_irl, 1)
+        if 'Messages' in resp:
+            message = resp['Messages'][0]
+            result = message['Body']
+            res_rec += 1
+            response = {
+                'result': result,
+                'total': j_length
+            }
+            socketio.emit(
+                'partial_result', json.dumps(response)
+            )
+            receipt_handle = message['ResceiptHandle']
+            delete_message(response_queue_irl, receipt_handle)
+    socketio.emit('processing_end', '')
+
+def setup_aws_resources():
+    create_bucket(BUCKET_NAME)
+
+    request_queue_url = create_queue(REQUEST_QUEUE_NAME, QUEUE_ATTRIBUTES)
+
+    response_queue_url = create_queue(RESPONSE_QUEUE_NAME, QUEUE_ATTRIBUTES)
+
+    return request_queue_url, response_queue_url
+
+def allowed_file(filename):
+    return '.' in filename and \
+            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 #defining some required variables
 request_queue_url = ''
