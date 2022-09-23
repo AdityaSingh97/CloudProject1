@@ -16,10 +16,11 @@ import boto3
 import json
 import time
 
-def process_image(request_queue_url, b64_string, job_id):
+def process_image(request_queue_url, b64_string, filename, job_id):
     message_attr = {}
     body_object = {
         'image': b64_string,
+        'name': filename,
         'job_id': job_id
     }
     body = json.dumps(body_object)
@@ -60,7 +61,7 @@ def get_running_app_tiers_ids():
 def listen_for_results(socketio, response_queue_irl, job_id, job_dictionary):
     res_rec = 0
     j_length = job_dictionary[job_id]
-    socketio.emit('prcoessing_start', j_length)
+    socketio.emit('processing_start', j_length)
     while res_rec != j_length:
         resp = receive_message(response_queue_irl, 1)
         if 'Messages' in resp:
@@ -114,11 +115,12 @@ def home_page():
         received = request.files.getlist("file")
         for file in received:
             if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
                 with open(file,"rb") as img_file:
                     b64_string = base64.b64encode(img_file.read())
                 images.append(file)
                 print("file uploaded", filename)
-            process_image(request_queue_url, b64_string, job_id)
+            process_image(request_queue_url, b64_string,filename, job_id)
         jobs[job_id] = len(images)
         print("images", images)
 
@@ -126,7 +128,7 @@ def home_page():
         spawn = Thread(target=spawn_processing_apps, args =(request_queue_url,job_id,))
         spawn.start()
 
-        listen-Thread(target=listen_for_results, args=(socket, response_queue_url,job_id,jobs,))
+        listen = Thread(target=listen_for_results, args=(socket, response_queue_url,job_id,jobs,))
         listen.start()
 
     return nullcontext
