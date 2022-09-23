@@ -1,5 +1,4 @@
 #libraries to import
-from audioop import maxpp
 import socket
 import logging
 import boto3
@@ -16,15 +15,16 @@ sqs_client=boto3.client('sqs')
 sqs_resrc=boto3.resource('sqs')
 
 #define constants
-#to add key pair and security group ID
+#TODO add key pair and security group ID
 APP_TIER_PREFIX='app_tier_ec2'
 MAX_APP_EC2=19
 KEY_PAIR=0
 SEC_GROUP_ID=0
 
 #launch ec2 instances
-#check --> min=1 required? 
-def create_instance(key_pair,security_group_id,img_id='ami-0bb1040fdb5a076bc',min,max):
+#TODO check --> min=1 required? 
+#TODO check if img_id needs to be defined to 'ami=...'
+def create_instance(key_pair,security_group_id,img_id,min,max):
     instance_list=ec2_resrc.create_instances(
         ImageID=img_id,
         MinCount=min,
@@ -32,7 +32,7 @@ def create_instance(key_pair,security_group_id,img_id='ami-0bb1040fdb5a076bc',mi
         InstanceType='t2-micro',
         KeyName=key_pair,
         SecurityGroupIds=[security_group_id]
-        #need to insert bash script which automates the start of web tier
+        #need to insert bash script which automates the start of app tier
     )
     #create instance tags for each instance by storing values as {'app-tier-ec2',instance number} until we arrive at 19 instances
     for i in range(max):
@@ -57,6 +57,7 @@ def create_instance(key_pair,security_group_id,img_id='ami-0bb1040fdb5a076bc',mi
         
     #autoscaling function
     #to check get_queue_attributes function parameters 
+    #TODO check if get_one_queue_attribute() function can be used from app-helper.py
     def autoscale(url):
         #get length of queue with url given, which denotes the number of req on the SQS
         queue_approx_num_msgs=sqs_client.get_queue_attributes(QueueUrl=url,AttributeNames='ApproximateNumberOfMessages')['Attributes']
