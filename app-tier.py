@@ -1,7 +1,6 @@
-from pyrsistent import b
 import app-helper
 import base64
-import image_classification
+from image_classification import *
 import os
 
 
@@ -9,7 +8,14 @@ def image_classification(img_encode):
     with open("imageToSave.jpg", "wb") as decoded_img:
         decoded_img.write(base64.decodebytes(img_encode))
     #img = Image.open(r"{x}".format(x=job_id))
-    result = image_classification.classify(img)
+    if object_name is None:
+        object_name = os.path.basename("imageToSave.jpg")
+    try:
+        response = upload_file(file_to_store, BUCKET_NAME, '{}{}'.format("imageToSave.jpg",S3_INPUT_FOLDER))
+    except ClientError as e:
+        logging.error(e)
+    print('uploaded file to bucket')
+    result = classify("imageToSave.jpg")
     os.remove("./imageToSave.jpg")
     return(result)
 
@@ -19,7 +25,7 @@ response_queue_url = get_queue_url(RESPONSE_QUEUE_NAME)
 
 jobs_processed = 0
 
-MAX_RETRIES = 4
+MAX_RETRIES = 12
 CURR_RETRIES = 0
 while (CURR_RETRIES < MAX_RETRIES):
     # 1) receive message from request queue
@@ -66,8 +72,8 @@ while (CURR_RETRIES < MAX_RETRIES):
         CURR_RETRIES += 1
 
 # 7) Add logic to terminate instance
-instanceid_to_kill = get_instance_id()
-print('instance id - {}, processed {} jobs and will be terminated now'.format(
-    instanceid_to_kill, jobs_processed))
-terminate_instance(instanceid_to_kisll)
+# instanceid_to_kill = get_instance_id()
+# print('instance id - {}, processed {} jobs and will be terminated now'.format(
+#     instanceid_to_kill, jobs_processed))
+# terminate_instance(instanceid_to_kisll)
 
