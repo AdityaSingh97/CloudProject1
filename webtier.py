@@ -48,6 +48,30 @@ def spawn_processing_apps(request_queue_url, job_id):
         max_count=num_instances
     )
     
+def autoscale(url):
+    #get length of queue with url given, which denotes the number of req on the SQS
+    queue_approx_num_msgs=int(get_one_queue_attribute(request_queue_url))
+    
+    #convert to integer
+    queue_len=int(queue_approx_num_msgs)
+    #get number of running ec2 instances
+    num_running_instances=get_running_instances()
+        
+    #launch 19-number of running instances
+    max_ec2_launch=MAX_APP_TIERS-num_running_instances
+    #take the minimum of number of requests and value calculated above
+    num_ec2_launch=min(queue_len,max_ec2_launch)
+    #create as many instances as calculated
+    create_instance(KEY_NAME,SECURITY_GROUP_ID,'ami-0f98bff2147986018',min_count=num_ec2_launch,max_count=num_ec2_launch)
+
+def get_running_instances():
+    instances_run=ec2_res.instances.filter(
+        Filters=[{'Name':'instance-state-name','Values':['running']}])
+    instance_ids=[]
+    for instance in instance_ids:
+        instance_ids.append(instance)
+    return len(instance_ids)
+        
 def get_running_app_tiers_ids():
     #curr_ins_id = get_instance_id()
     ec2_res = boto3.resource('ec2')
@@ -75,7 +99,8 @@ def listen_for_results(socketio, response_queue_irl, job_id, job_dictionary):
             message = resp['Messages'][0]
             result = message['Body']
             body = json.loads(result)
-            print(body['image_classification_result'])
+            print("hello")
+            print(body[image_classification_output])
             res_rec += 1
             response = {
                 'result': result,
@@ -135,7 +160,7 @@ def home_page():
         print("images", images)
 
         #need to set new threads and listen for results
-        spawn = Thread(target=spawn_processing_apps, args =(request_queue_url,job_id))
+        spawn = Thread(target=autoscale, args =(request_queue_url,))
         spawn.start()
 
         listen = Thread(target=listen_for_results, args=(socket, response_queue_url,job_id,jobs))
