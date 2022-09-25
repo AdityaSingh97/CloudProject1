@@ -3,10 +3,10 @@ from crypt import methods
 from fileinput import filename
 import uuid
 import os
-from flask import Flask, render_template, request
+from flask import Flask, request
 from flask_socketio import SocketIO
 from threading import Thread
-from werkzeug.utils import secure_filename
+#from werkzeug.utils import secure_filename
 from threading import Thread
 from constants import *
 from helper import *
@@ -14,6 +14,7 @@ import boto3
 import json
 import time
 import base64
+import requests
 
 def process_image(request_queue_url, b64_string, filename, job_id):
     message_attr = {}
@@ -26,12 +27,19 @@ def process_image(request_queue_url, b64_string, filename, job_id):
     send_message(request_queue_url, message_attr, job_id, body)
 
 def spawn_processing_apps(request_queue_url, job_id):
-    q_length = int(get_one_queue_attribute(request_queue_url))
+    queue_length = get_one_queue_attribute(request_queue_url)
+    queue_length = int(queue_length)
+    print('queue length is {}'.format(queue_length))
 
-    running = get_running_app_tiers_ids()
-    max_new = MAX_APP_TIERS - running
-    num_instances = min(q_length, max_new)
+    # retrieves number of live app tiers and subtract from max_app_tiers
+    num_running = get_running_app_tiers_ids()
+    print('App tier instances running -> {}'.format(num_running))
+    max_new = MAX_APP_TIERS - num_running
+    print('max new app tier instances that could be created are {}'.format(max_new))
+    num_instances = min(queue_length, max_new)
+    print('For jobid {} - will create {} instances'.format(job_id, num_instances))
 
+    # spawn ec2 instances according to request queue length
     create_instance(
         KEY_NAME,
         SECURITY_GROUP_ID,
@@ -41,7 +49,7 @@ def spawn_processing_apps(request_queue_url, job_id):
     )
     
 def get_running_app_tiers_ids():
-    curr_ins_id = get_instance_id()
+    #curr_ins_id = get_instance_id()
     ec2_res = boto3.resource('ec2')
     instances = ec2_res.instances.filter(
         Filters =[
@@ -53,7 +61,7 @@ def get_running_app_tiers_ids():
     )
     instance_ids = []
     for instance in instances:
-        if instance.id != curr_ins_id:
+        #if instance.id != curr_ins_id:
             instance_ids.append(instance.id)
     return len(instance_ids)
 
@@ -112,26 +120,25 @@ def home_page():
     job_id = str(uuid.uuid4())
 
     images = []
-    received =[]
     if not is_get:
-        received = request.files.getlist("file")
-        for file in received:
-            print("checking before allowed filename")
-            if file and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                with open(file,"rb") as img_file:
-                    b64_string = base64.b64encode(img_file.read())
-                images.append(file)
-                print("file uploaded", filename)
-            process_image(request_queue_url, b64_string,filename, job_id)
+        file = request.files['myfile']
+        print("checking before allowed filename")
+        if file and allowed_file(file.filename):
+            filename = file.filename
+            b64_string = base64.b64encode(file.read())
+            print(b64_string)
+            b64_string=b64_string.decode('utf-8')
+            images.append(file)
+            print("file uploaded", filename)
+        process_image(request_queue_url, b64_string,filename, job_id)
         jobs[job_id] = len(images)
         print("images", images)
 
         #need to set new threads and listen for results
-        spawn = Thread(target=spawn_processing_apps, args =(request_queue_url,job_id,))
+        spawn = Thread(target=spawn_processing_apps, args =(request_queue_url,job_id))
         spawn.start()
 
-        listen = Thread(target=listen_for_results, args=(socket, response_queue_url,job_id,jobs,))
+        listen = Thread(target=listen_for_results, args=(socket, response_queue_url,job_id,jobs))
         listen.start()
 
 
@@ -147,6 +154,8 @@ def disconnected():
     print('disconnected')
 
 request_queue_url,response_queue_url = setup_aws_resources()
+print(request_queue_url)
+print(response_queue_url)
 
 if __name__ == '__main__':
     print("listening")
