@@ -64,7 +64,7 @@ def autoscale(url):
        # print instance.id
     i_len= len(RunningInstances)
     #create as many instances as calculated
-    if(i_len <= 5):    
+    if(i_len <= 20):    
         create_instance(KEY_NAME,SECURITY_GROUP_ID,'ami-0e194886eea6a1364','t2.micro',1,1)
 
 
@@ -124,6 +124,9 @@ jobs= {}
 is_get = True
 
 app= Flask(__name__)
+
+socket = SocketIO(app)
+socket.init_app(app,cors_allowed_origins = "*")     #allows cross origin
 
 @app.route('/',methods=['GET','POST'])
 def home_page():

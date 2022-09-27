@@ -100,33 +100,6 @@ def create_bucket(bucket_name, region=None):
     return True
 
 
-# add to bucket
-def upload_file(file_name, bucket_name, object_name):
-    # If S3 object_name was not specified, use file_name
-    if object_name is None:
-        object_name = file_name
-    # Upload the file
-    try:
-        response = s3_client.upload_file(file_name, bucket_name, object_name)
-        print(response)
-    except ClientError as e:
-        logging.error(e)
-    # return success status
-        return False
-    return True
-
-# read from bucket
-
-
-def read_from_bucket(bucket_name, object_name):
-    # check if bucket exists
-    bucket = s3_res.Bucket(bucket_name)
-    object = bucket.Object(object_name)
-    print(object)
-    # downloading file to local from bucket
-    object.download_file(object_name)
-
-
 def get_instance_id():
     hostname = '{}.ec2.internal'.format(socket.gethostname())
     filters = [{'Name': 'private-dns-name', 'Values': [hostname]}]
@@ -136,12 +109,12 @@ def get_instance_id():
 # create instances (ami code)
 
 
-def create_instance(key_name, sec_group_ids, image_id='ami-030d11ed676135e79', instance_type='t2.micro', min_count=1, max_count=1):
+def create_instance(key_name, sec_group_ids, image_id='ami-0e194886eea6a1364', instance_type='t2.micro', min_count=1, max_count=1):
 
     instancelist = ec2_res.create_instances(
-        ImageId=image_id,
-        MinCount=min_count,
-        MaxCount=max_count,
+        ImageId='ami-0e194886eea6a1364',
+        MinCount=1,
+        MaxCount=1,
         InstanceType=instance_type,
         KeyName=key_name,
         SecurityGroupIds=[sec_group_ids],
@@ -159,6 +132,9 @@ def create_instance(key_name, sec_group_ids, image_id='ami-030d11ed676135e79', i
                 'Value': '{}{}'.format(APP_TIER_PREFIX, j),
             },
         ])
+    #for status in ec2_res.meta.client.describe_instance_status()['InstanceStatuses']:
+    #    print(status)
+    #ec2_res.update_instance_state(instance_id,1)
 
 
 def terminate_instance(instance_id):
@@ -167,5 +143,3 @@ def terminate_instance(instance_id):
     ec2_res.instances.filter(InstanceIds=ids).terminate()
 
 
-def give_path(path, bucket_name):
-    return ("{x}/{y}".format(x=bucket_name, y=path))
